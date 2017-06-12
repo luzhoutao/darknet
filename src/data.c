@@ -1151,6 +1151,7 @@ void get_next_batch(data d, int n, int offset, float *X, float *y)
     int j;
     for(j = 0; j < n; ++j){
         int index = offset + j;
+        //vals是指针，data虽然传了值仍然可以修改
         memcpy(X+j*d.X.cols, d.X.vals[index], d.X.cols*sizeof(float));
         if(y) memcpy(y+j*d.y.cols, d.y.vals[index], d.y.cols*sizeof(float));
     }

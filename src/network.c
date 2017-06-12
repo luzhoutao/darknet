@@ -252,11 +252,16 @@ float train_network_datum(network net)
 #ifdef GPU
     if(gpu_index >= 0) return train_network_datum_gpu(net);
 #endif
+    //修改已读取图片的计数
     *net.seen += net.batch;
     net.train = 1;
+    
     forward_network(net);
+    
     backward_network(net);
+    
     float error = *net.cost;
+    //完成这一批的训练，则更新网络的权重
     if(((*net.seen)/net.batch)%net.subdivisions == 0) update_network(net);
     return error;
 }
@@ -275,16 +280,22 @@ float train_network_sgd(network net, data d, int n)
     return (float)sum/(n*batch);
 }
 
+//网络训练的接口
 float train_network(network net, data d)
 {
+    //d.X.rows=512, net.batch=64
     assert(d.X.rows % net.batch == 0);
+
     int batch = net.batch;
-    int n = d.X.rows / batch;
+    int n = d.X.rows / batch; //每个subdivision有多少个batch
 
     int i;
     float sum = 0;
+    //循环n次，进行训练
     for(i = 0; i < n; ++i){
+        //将数据从d中读出来放在net里面
         get_next_batch(d, batch, i*batch, net.input, net.truth);
+        //用net中的数据进行训练
         float err = train_network_datum(net);
         sum += err;
     }

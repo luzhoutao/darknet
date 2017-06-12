@@ -477,7 +477,7 @@ typedef struct{
 } box;
 
 typedef struct matrix{
-    int rows, cols;
+    int rows, cols;  //row表示一次加载的数据量，col表示数据的纬度
     float **vals;
 } matrix;
 

@@ -1,23 +1,26 @@
 #include "darknet.h"
 
+//识别的分类
 char *voc_names[] = {"aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"};
 
 void train_yolo(char *cfgfile, char *weightfile)
 {
-    char *train_images = "/data/voc/train.txt";
+    //这里用来训练yolo网络
+    char *train_images = "/data/voc/train.txt"; //指定图像数据，包含图像的路径，后面会通过确定的规则修改成标签的路径
     char *backup_directory = "/home/pjreddie/backup/";
     srand(time(0));
-    char *base = basecfg(cfgfile);
+    char *base = basecfg(cfgfile); //获得基本的网络配置文件
     printf("%s\n", base);
     float avg_loss = -1;
-    network net = parse_network_cfg(cfgfile);
+    network net = parse_network_cfg(cfgfile); //解析网路配置文件
     if(weightfile){
-        load_weights(&net, weightfile);
+        load_weights(&net, weightfile); //如果指定了初始化的权重，则也载入
     }
+    //网络训练的参数，从cfg文件中读入
     printf("Learning Rate: %g, Momentum: %g, Decay: %g\n", net.learning_rate, net.momentum, net.decay);
-    int imgs = net.batch*net.subdivisions;
-    int i = *net.seen/imgs;
-    data train, buffer;
+    int imgs = net.batch*net.subdivisions; //batch=64, subdivisoin=8, imgs = 512
+    int i = *net.seen/imgs; //seen表示已经用过的图像的数量，i表示当前已经运行的批次（保存在网络结构中）
+    data train, buffer; 
 
 
     layer l = net.layers[net.n - 1];
@@ -47,25 +50,29 @@ void train_yolo(char *cfgfile, char *weightfile)
     args.saturation = net.saturation;
     args.hue = net.hue;
 
+    //创建线程分别读取图像数据和标签数据
     pthread_t load_thread = load_data_in_thread(args);
     clock_t time;
     //while(i*imgs < N*120){
+
+   //get_current_batch获得当前已经运行的batch num, 如果超过设置的最大batch数量则训练结束
     while(get_current_batch(net) < net.max_batches){
         i += 1;
-        time=clock();
-        pthread_join(load_thread, 0);
+        time=clock(); //记录这次训练的起始时间
+        pthread_join(load_thread, 0);//等待数据读取完成
         train = buffer;
         load_thread = load_data_in_thread(args);
 
         printf("Loaded: %lf seconds\n", sec(clock()-time));
 
         time=clock();
-        float loss = train_network(net, train);
+        float loss = train_network(net, train); //训练网络
         if (avg_loss < 0) avg_loss = loss;
-        avg_loss = avg_loss*.9 + loss*.1;
+        avg_loss = avg_loss*.9 + loss*.1; //对loss进行历史的加权处理
 
         printf("%d: %f, %f avg, %f rate, %lf seconds, %d images\n", i, loss, avg_loss, get_current_rate(net), sec(clock()-time), i*imgs);
         if(i%1000==0 || (i < 1000 && i%100 == 0)){
+		//定时保存权重文件
             char buff[256];
             sprintf(buff, "%s/%s_%d.weights", backup_directory, base, i);
             save_weights(net, buff);
